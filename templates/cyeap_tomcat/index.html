@@ -3,36 +3,36 @@
 <!-- 套用基础模版页面 END-->
 <!-- 填充内容栏 page-content START-->
 {% block page-content %}
+    <!-- 搜索栏 START-->
     <div class="container-fluid panel panel-default">
-        <div class="panel-body">
-            <div class="row">
-                <div class="col-md-3">
-                    <div class="input-group">
-                        <div class="input-group-addon">名称</div>
-                        <input type="text" class="form-control" name="input_tomcat_name">
-                    </div>
+        <div class="row panel-body">
+            <div class="col-md-3">
+                <div class="input-group">
+                    <div class="input-group-addon">名称</div>
+                    <input type="text" class="form-control" name="input_tomcat_name">
                 </div>
-                <div class="col-md-3">
-                    <div class="input-group">
-                        <div class="input-group-addon">别名</div>
-                        <input type="text" class="form-control" name="input_tomcat_alias">
-                    </div>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group">
+                    <div class="input-group-addon">别名</div>
+                    <input type="text" class="form-control" name="input_tomcat_alias">
                 </div>
-                <div class="col-md-3">
-                    <div class="input-group">
-                        <div class="input-group-addon">内网IP</div>
-                        <input type="text" class="form-control" name="input_ip4_inner">
-                    </div>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group">
+                    <div class="input-group-addon">内网IP</div>
+                    <input type="text" class="form-control" name="input_ip4_inner">
                 </div>
-                <div class="col-md-3">
-                    <div class="input-group">
-                        <div class="input-group-addon">应用名称</div>
-                        <input type="text" class="form-control" name="input_webapp_name">
-                    </div>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group">
+                    <div class="input-group-addon">应用名称</div>
+                    <input type="text" class="form-control" name="input_webapp_name">
                 </div>
             </div>
         </div>
     </div>
+    <!-- 搜索栏 END-->
     <hr/>
     <!-- 表格数据展示 START -->
     <div class="table-responsive">
@@ -67,16 +67,31 @@
 {% block script %}
     <script>
         $(function () {
-            $("#nav_cyeap_tomcat").addClass("active"); // 激活导航栏样式
-            var action = "/cyeap_tomcat/get_tomcat_server"; // 数据获取 url 地址
-            var params = {"page_num": 1, "page_size": 2};
-            get_tomcat_server(action, params); //初始化数据
+            /* --------------------函数定义区 START--------------------------*/
+            /* 返回查询数据所用到的字典参数*/
+            function get_params() {
+                var tomcat_name = $('input[name="input_tomcat_name"]').val();
+                var tomcat_alias = $('input[name="input_tomcat_alias').val();
+                var ip4_inner = $('input[name="input_ip4_inner').val();
+                var webapp_name = $('input[name="input_webapp_name').val();
+                var params = {
+                    "tomcat_name": tomcat_name,
+                    "tomcat_alias": tomcat_alias,
+                    "ip4_inner": ip4_inner,
+                    "webapp_name": webapp_name,
+                    "page_num": 1,  // 默认显示第一页
+                    "page_size": 5  // 默认单页条数
+                };
+                return params;
+            }
+
             /* 获取表格中数据的函数 */
             function get_tomcat_server(action, params) {
                 $.get(action, {params: JSON.stringify(params)}, function (data) {
                     var tbody_html = "";
-                    for (tm in data) {
+                    for (tm in data) { //遍历数据
                         if (!isNaN(tm)) {
+                            // 拼接table.tbody html
                             tbody_html += "<tr>";
                             tbody_html += "<td>" + data[tm]["id"] + "</td>";
                             tbody_html += "<td>" + data[tm]["name"] + "</td>";
@@ -89,44 +104,20 @@
                             } else {
                                 tbody_html += "<td><input type=\"button\" class=\"btn btn-danger btn-xs\" data-toggle=\"tooltip\" title=\"点击启动服务\" value=\"已停止\"></td>";
                             }
+                            if(data[tm]["remark"] == null){
+                                data[tm]["remark"] = "";
+                            }
                             tbody_html += "<td><img src=\"/static/img/remark.ico\" data-toggle=\"tooltip\" title=\"" + data[tm]["remark"] + "\"/></td>"
                         }
                     }
                     $("tbody").html(tbody_html); // 替换表格中的 html
-                    $(".page-header").html(data["page_html"]) // 替换分页 html
+                    $(".page-header").html(data["page_html"]); // 替换底部页码 html
                 })
             }
 
-            /* 页面事件绑定 START */
-            // 查询
-            $("input[type=text]").on("input", function () {
-                var tomcat_name = $('input[name="input_tomcat_name"]').val()
-                var tomcat_alias = $('input[name="input_tomcat_alias').val()
-                var ip4_inner = $('input[name="input_ip4_inner').val()
-                var webapp_name = $('input[name="input_webapp_name').val()
-                var params = {
-                    "tomcat_name": tomcat_name,
-                    "tomcat_alias": tomcat_alias,
-                    "ip4_inner": ip4_inner,
-                    "webapp_name": webapp_name,
-                    "page_num": 1
-                };
-                get_tomcat_server(action, params); // 获取数据
-            });
-            // 上一页
-            $(document).on('click', '#previous_page', function () {
-                flip_page("previous_page");
-            });
-            // 下一页
-            $(document).on('click', '#next_page', function () {
-                flip_page("next_page");
-            });
-            // 跳页
-            $(document).on('click', '.pagination li .page_num', function () {
-                flip_page(this);
-            });
             /* 翻页函数 */
             function flip_page(flag) {
+                var params = get_params();
                 var page_num = $(".pagination .active a").html();  // 获取当前页码
                 if (flag == "previous_page") {
                     page_num--;
@@ -141,11 +132,36 @@
                 } else {
                     page_num = $(flag).html();  // 获取点击的页码,要参数转成jquery对象才能使用.html()
                 }
-                var params = {"page_num": page_num};
+                params["page_num"] = page_num; // 改变页码条件
                 get_tomcat_server(action, params); // 获取数据
             }
 
+            /* --------------------函数定义区 END ---------------------------*/
+            /* --------------------START--------------------------*/
+            $("#nav_cyeap_tomcat").addClass("active"); // 激活导航栏样式
+            var action = "/cyeap_tomcat/get_tomcat_server"; // 获取数据 url 地址
+            var params = get_params();   // 获取参数
+            get_tomcat_server(action, params); //初始化数据
+            /* 页面事件绑定 START */
+            // 查询事件
+            $("input[type=text]").on("input", function () {
+                params = get_params(); // 获取参数
+                get_tomcat_server(action, params); // 获取数据
+            });
+            // 上一页事件
+            $(document).on('click', '#previous_page', function () {
+                flip_page("previous_page");
+            });
+            // 下一页事件
+            $(document).on('click', '#next_page', function () {
+                flip_page("next_page");
+            });
+            // 跳页事件
+            $(document).on('click', '.pagination li .page_num', function () {
+                flip_page(this);
+            });
             /* 页面事件绑定 END */
+            /* --------------------END--------------------------*/
         });
 
     </script>

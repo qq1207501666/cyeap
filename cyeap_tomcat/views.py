@@ -33,7 +33,7 @@ def get_tomcat_server(request):
     page_num = params.get("page_num")
     page_num = page_num if page_num else 1
     page_size = params.get("page_size")
-    page_size = page_size if page_size else 2
+    page_size = page_size if page_size else 100
     # ---- 获取查询条件 ---- #
     tomcat_name = params.get("tomcat_name")
     tomcat_name = tomcat_name if tomcat_name else ""
