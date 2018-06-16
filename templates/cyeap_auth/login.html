@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<!-- 登录页 -->
+<html lang="zh-CN">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">  <!-- 响应时布局 -->
+    <!-- 上述3个meta标签*必须*放在最前面，任何其他内容都*必须*跟随其后！ -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Login</title>
+    <link rel="icon" href="/static/img/favicon.ico">
+    <!-- Bootstrap 核心 CSS -->
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <link href="/static/css/ie10-viewport-bug-workaround.css" rel="stylesheet">
+    <!-- 自定义的CSS -->
+    <link href="/static/css/login.css" rel='stylesheet' type='text/css'/>
+</head>
+<body>
+<h1>Login Form</h1>
+<!-- 登录表单 START-->
+<div class="login-form">
+    <div class="head-info">
+        <label class="lbl-1"> </label>
+        <label class="lbl-2"> </label>
+        <label class="lbl-3"> </label>
+    </div>
+    <div class="clear"></div>
+    <div class="avtar">
+        <img src="/static/img/avtar.png"/>
+    </div>
+    <form action="/cyeap_auth/login_auth/" method="POST">
+        {% csrf_token %}
+        <input name="username" type="text" class="text" placeholder="用户名">
+        <input name="password" type="password" placeholder="密码">
+        <div id="error_tip">
+
+        </div>
+        <!-- 错误提示 -->
+        <div class="signin">
+            <input type="submit" value="Login">
+        </div>
+    </form>
+</div>
+<!-- 登录表单 END-->
+</body>
+<!-- Bootstrap core JavaScript -->
+<!-- Placed at the end of the document so the pages load faster -->
+<script src="/static/js/jquery.min.js"></script>
+<script>window.jQuery || document.write('<script src="/static/js/jquery.min.js"><\/script>')</script>
+<script src="/static/js/bootstrap.min.js"></script>
+<!-- Just to make our placeholder images work. Don't actually copy the next line! -->
+<script src="/static/js/holder.min.js"></script>
+<!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+<script src="/static/js/ie10-viewport-bug-workaround.js"></script>
+<script>
+    $(function () {
+        /* 表单提交验证 */
+        $(".login-form").submit(function () {
+                var error_tip = "";  // 验证提示语
+                    /* 验证用户名 */
+                var username = $("input[name=username]").val();
+                if (username == "" || username == undefined) {
+                    error_tip = "用户名不能为空！";
+                }
+                    /* 验证密码 */
+                var password = $("input[name=password]").val();
+                if (password == "" || password == undefined) {
+                    error_tip = "密码不能为空！";
+                }
+                if (error_tip != "") {
+                    alert_error(error_tip);
+                    return false;
+                }
+            }
+        );
+        /* 用户名或密码输入框重新获取焦点 错误提示消失 */
+        $("input[name=username]").focus(function () {
+            $("#error_tip").html("")
+        });
+        $("input[name=password]").focus(function () {
+            $("#error_tip").html("")
+        });
+        /* 显示错误提示框 */
+        function alert_error(error) {
+            console.log(error);
+            var tip_html = "<div class=\"alert alert-danger alert-dismissible\" role=\"alert\"><button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\">" +
+                "<spanaria-hidden=\"true\">&times;</span>" +
+                "</button>" + error + "</div>"; // 错误提示语
+            $("#error_tip").html(tip_html);
+        }
+        /* 登录失败,显示错误提示框 */
+        {% if error != "" and error != null %}
+            alert_error("{{ error }}");
+        {% endif %}
+    });
+</script>
+</html>
