@@ -1,3 +1,14 @@
+"""
+    Filename : page_util.py
+    Summary  : 分页工具
+    License  : www.cyeap.com
+    Version  : 1.0
+    Author   : Jet Bi
+    Email    : 1207501666@qq.com
+    Date     : 2018/06/06
+    Notes    :
+        -
+"""
 import math
 
 
