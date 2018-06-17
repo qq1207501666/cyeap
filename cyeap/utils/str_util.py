@@ -17,4 +17,4 @@ def none2empty(obj):
     :param obj:
     :return: obj or ""
     """
-    return obj if obj is None else ""
+    return "" if obj is None else obj

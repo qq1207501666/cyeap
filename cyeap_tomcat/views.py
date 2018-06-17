@@ -40,6 +40,7 @@ def get_tomcat_server(request):
     tomcat_alias = str_util.none2empty(params.get("tomcat_alias"))
     ip4_inner = str_util.none2empty(params.get("ip4_inner"))
     webapp_name = str_util.none2empty(params.get("webapp_name"))
+    print('%s----------' % tomcat_name)
     # ---------------------- #
     json_dict = {}  # 响应的json数据字典
     record_count = models.TomcatServer.objects.filter(name__contains=tomcat_name, alias__contains=tomcat_alias,
