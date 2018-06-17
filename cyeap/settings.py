@@ -11,10 +11,10 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 """
 
 import os
+from cyeap.utils import date_util
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.0/howto/deployment/checklist/
@@ -25,8 +25,7 @@ SECRET_KEY = 'k@o17_34xyw3o_szr_-6+p7ucz3t6&q8b5!vl=rk!&^@kix3cl'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
-
+ALLOWED_HOSTS = ['*']  # 允许访问的主机IP
 
 # Application definition
 
@@ -38,7 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'demo',  # 演示模块
-    'cyeap_auth',    # 权限管理模块
+    'cyeap_auth',  # 权限管理模块
     'cyeap_tomcat',  # tomcat管理模块
 ]
 
@@ -57,8 +56,7 @@ ROOT_URLCONF = 'cyeap.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')]
-        ,
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -73,17 +71,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'cyeap.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
-
+# 数据库连接配置
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'cyeap.db'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/2.0/ref/settings/#auth-password-validators
@@ -103,10 +99,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.0/topics/i18n/
 
+# 更改django admin 管理页面为中文
 # LANGUAGE_CODE = 'en-us'
 LANGUAGE_CODE = 'zh-hans'
 
@@ -118,18 +114,65 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.0/howto/static-files/
 
 STATIC_URL = '/static/'
 
-# 静态文件目录
+# 静态文件根目录
 STATIC_ROOT = '/static/'
 
+# 静态文件目录
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
     '/var/www/static/',
 ]
 
+# 登录跳转
 LOGIN_URL = "/cyeap_auth/login/"
+
+# 日志配置
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'verbose': {
+            'format': '[%(asctime)s][%(levelname)s][%(pathname)s %(lineno)s]=>%(message)s'  # 日志格式
+        },
+        'simple': {
+            'format': '[%(asctime)s][%(levelname)s]=>%(message)s'  # 日志格式
+        },
+    },
+    'filters': {
+        # 过滤器,根据需求配置
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        },
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.TimedRotatingFileHandler',  #
+            'filename': BASE_DIR + '/cyeap.log',
+            'formatter': 'simple',
+            'encoding': 'utf8',
+            'when': 'midnight',  # 半夜0点的时候分割日志
+            'interval': 1,
+            'backupCount': 30,  # 最大备份30个日志文件
+        },
+        'email': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+            'include_html': True,
+        }
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file', 'email'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}

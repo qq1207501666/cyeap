@@ -7,9 +7,13 @@ from django.forms.models import model_to_dict  # 对象转换成字典
 from cyeap.utils import page_util, str_util
 from django.utils.safestring import mark_safe  # 防止html代码直接红果果的显示在页面上
 import json
+import logging
+
+logger = logging.getLogger('django')  # 获取日志对象
 
 
 # Create your views here.
+
 
 @login_required  # 要求必须登录状态
 def index(request):
@@ -40,7 +44,7 @@ def get_tomcat_server(request):
     tomcat_alias = str_util.none2empty(params.get("tomcat_alias"))
     ip4_inner = str_util.none2empty(params.get("ip4_inner"))
     webapp_name = str_util.none2empty(params.get("webapp_name"))
-    print('%s----------' % tomcat_name)
+    logger.error("请求参数:%s" % params)
     # ---------------------- #
     json_dict = {}  # 响应的json数据字典
     record_count = models.TomcatServer.objects.filter(name__contains=tomcat_name, alias__contains=tomcat_alias,
