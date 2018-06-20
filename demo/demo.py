@@ -1,128 +1,58 @@
-import redis
-# Create your tests here.
+import platform
+import os
+import sys
 from apscheduler.schedulers.background import BackgroundScheduler, BlockingScheduler
-from apscheduler.jobstores.redis import RedisJobStore
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
-from datetime import datetime
+import subprocess
 import time
 
 
-class ScheduleFactory(object):
-    def __init__(self):
-        if not hasattr(ScheduleFactory, '__scheduler'):
-            __scheduler = ScheduleFactory.get_instance()
-        self.scheduler = __scheduler
-
-    @staticmethod
-    def get_instance():
-        pool = redis.ConnectionPool(
-            host='172.16.120.15',
-            port=6379,
-        )
-        r = redis.StrictRedis(connection_pool=pool)
-        jobstores = {
-            'redis': RedisJobStore(connection_pool=pool),
-            'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
-        }
-        executors = {
-            'default': ThreadPoolExecutor(max_workers=30),
-            'processpool': ProcessPoolExecutor(max_workers=30)
-        }
-        job_defaults = {
-            'coalesce': False,
-            'max_instances': 3
-        }
-        scheduler = BackgroundScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults,daemonic=False)
-        #scheduler = BlockingScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults, daemonic=False)
-        return scheduler
-
-    def start(self):
-        self.scheduler.start()
-
-    def shutdown(self):
-        self.scheduler.shutdown()
+def collect_webapp(pid):
+    """
+    要定时执行的函数
+    :param args: 参数
+    :return: None
+    """
+    try:
+        webapps = subprocess.check_output('ls /local/webapp/', shell=True)
+        fout = open('/tmp/demone.log', 'w')
+        fout.write(webapps.decode(encoding='utf-8'))
+        fout.close()
+    except Exception as ex:
+        print(ex)
+        os.kill(pid)
 
 
-def print_hello():
-    print("Hello,%s" % datetime.now())
+def createDaemon():
+    # fork进程
+    try:
+        if os.fork() > 0:
+            sys.exit(0)
+    except OSError as error:
+        print('fork #1 failed: %d (%s)' % (error.errno, error.strerror))
+        sys.exit(1)
+    os.chdir('/')
+    os.setsid()
+    os.umask(0)
+    try:
+        pid = os.fork()
+        if pid > 0:
+            print('Daemon PID %d' % pid)
+            sys.exit(0)
+    except OSError as error:
+        print('fork #2 failed: %d (%s)' % (error.errno, error.strerror))
+        sys.exit(1)
+    # 重定向标准IO
+    sys.stdout.flush()
+    sys.stderr.flush()
+    # 在子进程中执行代码
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(collect_webapp, trigger='interval', seconds=3)
+    scheduler.start()
+    while True:
+        time.sleep(3)
 
-
-schedule = ScheduleFactory().get_instance()
-schedule.add_job(print_hello, jobstore='default', trigger='interval', seconds=10, id="jobs14", executor='processpool',
-                 misfire_grace_time=30)
-#schedule.remove_all_jobs()
-schedule.start()
-
-while True:
-    time.sleep(10)
-    print("A")
-
-
-
-
-# import redis
-# import configparser
-#
-# # CONFIG = configparser.ConfigParser()
-# # CONFIG.read("config/system.ini")
-# # redis_host = CONFIG.get("redis", "REDIS_HOST")
-# # redis_port = CONFIG.get("redis", "REDIS_PORT")
-# # redis_db = CONFIG.get("redis", "REDIS_DB")
-# # redis_pwd = CONFIG.get("redis", "REDIS_PASSWORD")
-#
-# redisConnect = redis.Redis("172.16.120.15", 6379)
-#
-# redisConnect.set("JET", "hahahahahahahahahah")
-# print(redisConnect.get("JET"))
-#
-# class RedisTool:
-#     @staticmethod
-#     def hexists(name, key):
-#         return redisConnect.hexists(name, key)
-#
-#     @staticmethod
-#     def hget(name, key):
-#         return redisConnect.hget(name, key)
-#
-#     @staticmethod
-#     def getset(name, value):
-#         return redisConnect.getset(name, value)
-#
-#     @staticmethod
-#     def hdel(name, *keys):
-#         return redisConnect.hdel(name, *keys)
-#
-#     @staticmethod
-#     def hgetall(name):
-#         return redisConnect.hgetall(name)
-#
-#     @staticmethod
-#     def hkeys(name):
-#         return redisConnect.hkeys(name)
-#
-#     @staticmethod
-#     def hlen(name):
-#         return redisConnect.hlen(name)
-#
-#         # Set key to value within hash name Returns 1 if HSET created a new field, otherwise 0
-#
-#     @staticmethod
-#     def hset(name, key, value):
-#         return redisConnect.hset(name, key, value)
-#
-#     @staticmethod
-#     def setex(name, time, value):
-#         return redisConnect.setex(name, time, value)
-#
-#     @staticmethod
-#     def get(name):
-#         return redisConnect.get(name)
-#
-#     @staticmethod
-#     def exists(name):
-#         return redisConnect.exists(name)
-#
-#     @staticmethod
-#     def set(name, value):
-#         return redisConnect.set(name, value)
+if __name__ == '__main__':
+    if platform.system() == "Linux":
+        createDaemon()
+    else:
+        sys.exit(0)

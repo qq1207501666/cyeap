@@ -62,6 +62,8 @@ def get_tomcat_server(request):
             dt = model_to_dict(server)
             dt["webapp_deploy_path"] = server.webapp.deploy_path  # 将关联表的数据查出加入到json数据字典中
             json_dict[str(server.id)] = dt  # 多条数据,每条以ID为key组成的字典
-    html = page_util.page_html(page_num, page_size, record_count)  # 获取分页html
-    json_dict["page_html"] = mark_safe(html)
+        html = page_util.page_html(page_num, page_size, record_count)  # 获取分页html
+        json_dict["page_html"] = mark_safe(html)
+    else:
+        json_dict["page_html"] = ""
     return JsonResponse(json_dict)
