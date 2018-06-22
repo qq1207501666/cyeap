@@ -11,17 +11,17 @@ class TomcatWebapp(models.Model):
     name = models.CharField(max_length=128, verbose_name="项目名称")
     alias = models.CharField(max_length=128, null=True, blank=True, verbose_name="项目别名")
     deploy_path = models.CharField(max_length=128, verbose_name="部署路径", default="/local/webapp/")
-    source_path = models.CharField(max_length=128, verbose_name="SVN源路径")
+    source_path = models.CharField(max_length=128, verbose_name="源路径")
     current_version = models.CharField(max_length=128, null=True, blank=True, verbose_name="项目版本")   # 项目版本
     create_time = models.DateTimeField(auto_now=True, verbose_name="创建时间")      # 创建时间
     update_time = models.DateTimeField(auto_now_add=True, verbose_name="更新时间")  # 更新时间
-    remark = models.CharField(max_length=512, null=True, blank=True, verbose_name="备注")  # 备注
+    remark = models.CharField(max_length=512, null=True, blank=True, verbose_name="备注", default="")  # 备注
 
     def __str__(self):
         return "%s  %s" % (self.alias, self.name)
 
     class Meta:
-        db_table = "TomcatWebapp"
+        db_table = "tomcat_webapp"
 
 
 class TomcatServer(models.Model):
@@ -43,13 +43,13 @@ class TomcatServer(models.Model):
     webapp = models.ForeignKey(TomcatWebapp, on_delete=models.CASCADE, verbose_name="部署应用")
     create_time = models.DateTimeField(auto_now=True, verbose_name="创建时间")
     update_time = models.DateTimeField(auto_now_add=True, verbose_name="更新时间")
-    remark = models.CharField(max_length=512, null=True, blank=True, verbose_name="备注")
+    remark = models.CharField(max_length=512, null=True, blank=True, verbose_name="备注", default="")
 
     def __str__(self):
         return "%s  %s" % (self.alias, self.name)
 
     class Meta:
-        db_table = "TomcatServer"
+        db_table = "tomcat_server"
 
 # class UpgradeRecord(models.Model):
 #     """

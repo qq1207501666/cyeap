@@ -21,7 +21,6 @@ from django.conf.urls import url, include    # 导入url, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    url(r'^demo/', include("demo.urls")),
     url(r'^cyeap_tomcat/', include("cyeap_tomcat.urls")),
     url(r'^cyeap_auth/', include("cyeap_auth.urls")),
 ]

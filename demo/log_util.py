@@ -46,7 +46,6 @@ CONFIG = {
     },
 }
 
-logging.
 logger = logging.getLogger("django")
 logger.error("aaa")
 

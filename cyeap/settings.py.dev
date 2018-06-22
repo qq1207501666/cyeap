@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'k@o17_34xyw3o_szr_-6+p7ucz3t6&q8b5!vl=rk!&^@kix3cl'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']  # 允许访问的主机IP
 
@@ -132,7 +132,7 @@ STATIC_ROOT = '/static/'
 # 静态文件目录
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
-    '/var/www/static/',
+    '/local/webapp/cyeap/static/',
 ]
 
 # 登录跳转
@@ -162,7 +162,7 @@ LOGGING = {
         'file': {
             'level': 'WARNING',
             'class': 'logging.handlers.TimedRotatingFileHandler',  #
-            'filename': BASE_DIR + '/logs/cyeap.log',
+            'filename': BASE_DIR + '/cyeap.log',
             'formatter': 'simple',
             'encoding': 'utf8',
             'when': 'midnight',  # 半夜0点的时候分割日志
@@ -178,7 +178,7 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console', 'file', 'email'],
-            'level': 'INFO',
+            'level': 'INFO',   # 日志级别
             'propagate': True,
         },
     },

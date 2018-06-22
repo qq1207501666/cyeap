@@ -4,15 +4,12 @@ from django.http import JsonResponse
 from cyeap_tomcat import models
 
 from django.forms.models import model_to_dict  # 对象转换成字典
-from cyeap.utils import page_util, str_util
+from cyeap.utils import page_util, str_util, socket_util
 from django.utils.safestring import mark_safe  # 防止html代码直接红果果的显示在页面上
 import json
 import logging
 
 logger = logging.getLogger('django')  # 获取日志对象
-
-
-# Create your views here.
 
 
 @login_required  # 要求必须登录状态
@@ -49,14 +46,14 @@ def get_tomcat_server(request):
     json_dict = {}  # 响应的json数据字典
     record_count = models.TomcatServer.objects.filter(name__contains=tomcat_name, alias__contains=tomcat_alias,
                                                       ip4_inner__contains=ip4_inner,
-                                                      webapp__name__contains=webapp_name).count()  # 总记录数
+                                                      webapp__deploy_path__contains=webapp_name).count()  # 总记录数
     if record_count > 0:
         page_num = page_util.revise_page_num(page_num, page_size, record_count)  # 修正页码
         start = (page_num - 1) * page_size  # 取记录的开始下标(含)
         end = page_num * page_size  # 取记录的开始下标(不含)
         tomcat_servers = models.TomcatServer.objects.filter(name__contains=tomcat_name, alias__contains=tomcat_alias,
                                                             ip4_inner__contains=ip4_inner,
-                                                            webapp__name__contains=webapp_name)[
+                                                            webapp__deploy_path__contains=webapp_name)[
                          start: end]  # 分页数据利用QuerySets的惰性进行分页查询,提高效率
         for server in tomcat_servers:
             dt = model_to_dict(server)
@@ -66,4 +63,23 @@ def get_tomcat_server(request):
         json_dict["page_html"] = mark_safe(html)
     else:
         json_dict["page_html"] = ""
+    return JsonResponse(json_dict)
+
+
+def upgrade_webapp(request):
+    """
+    升级项目
+    :param request:
+    :return:
+    """
+
+    params = request.POST.get("params")  # 获取请求参数
+    params = json.loads(params)  # 解析json数据
+    tomcat_id = str_util.none2empty(params.get("tomcat_id"))
+    tomcat_server = models.TomcatServer.objects.get(id=tomcat_id)  # 获取要升级的TomcatServer
+    cmd = 'svn up %s' % tomcat_server.webapp.deploy_path  # 更新项目的命令
+    logger.error("向%s发送命令: %s" % (tomcat_server.ip4_inner, cmd))
+    result = socket_util.send_json(tomcat_server.ip4_inner, 9999, {'cmd': cmd})  # 向agent发送命令
+    logger.error("命令发送结果: %s" % result)
+    json_dict = {"result": result}
     return JsonResponse(json_dict)

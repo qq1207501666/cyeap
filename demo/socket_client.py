@@ -10,3 +10,6 @@ def send_data(host, port, data):
         print(str(response, "utf-8"))
 
 
+while True:
+    send_data('172.16.100.13',9999, {'cmd': 'ls -l'})
+    input("------>")

@@ -46,6 +46,7 @@
                 <th>Tomcat部署路径</th>
                 <th>应用程序部署路径</th>
                 <th>状态</th>
+                <th>操作</th>
                 <th>备注</th>
             </tr>
             </thead>
@@ -58,7 +59,6 @@
     <!-- 底部分页页码 START -->
     <nav class="page-header" aria-label="Page navigation">
         <!-- 通过 AJAX 获取数据进行填充 -->
-        <input type="button" class="btn btn-sm" value="运行中">
     </nav>
     <!-- 底部分页页码 END -->
 {% endblock %}
@@ -93,20 +93,18 @@
                         if (!isNaN(tm)) {
                             // 拼接table.tbody html
                             tbody_html += "<tr>";
-                            tbody_html += "<td>" + data[tm]["id"] + "</td>";
+                            tbody_html += "<td><input type=\"checkbox\" name=\"tomcat_id\" value=\"" + data[tm]["id"] + "\"></td>";
                             tbody_html += "<td>" + data[tm]["name"] + "</td>";
                             tbody_html += "<td>" + data[tm]["alias"] + "</td>";
                             tbody_html += "<td>" + data[tm]["ip4_inner"] + "</td>";
                             tbody_html += "<td>" + data[tm]["deploy_path"] + "</td>";
                             tbody_html += "<td>" + data[tm]["webapp_deploy_path"] + "</td>";
                             if (data[tm]["is_run"]) {
-                                tbody_html += "<td><input type=\"button\" class=\"btn btn-success btn-xs\" data-toggle=\"tooltip\" title=\"点击停止运行\" value=\"运行中\"></td>";
+                                tbody_html += "<td><input id=\"stop_tomcat\" type=\"button\" class=\"btn btn-success btn-xs\" data-toggle=\"tooltip\" title=\"点击停止运行\" value=\"运行中\"></td>";
                             } else {
-                                tbody_html += "<td><input type=\"button\" class=\"btn btn-danger btn-xs\" data-toggle=\"tooltip\" title=\"点击启动服务\" value=\"已停止\"></td>";
+                                tbody_html += "<td><input id=\"start_tomcat\" type=\"button\" class=\"btn btn-danger btn-xs\" data-toggle=\"tooltip\" title=\"点击启动服务\" value=\"已停止\"></td>";
                             }
-                            if(data[tm]["remark"] == null){
-                                data[tm]["remark"] = "";
-                            }
+                            tbody_html += "<td><img src=\"/static/img/upgrade.ico\" data-toggle=\"tooltip\" title=\"升级\"/></td>";
                             tbody_html += "<td><img src=\"/static/img/remark.ico\" data-toggle=\"tooltip\" title=\"" + data[tm]["remark"] + "\"/></td>"
                         }
                     }
@@ -137,16 +135,33 @@
             }
 
             /* --------------------函数定义区 END ---------------------------*/
-            /* --------------------START--------------------------*/
+            /* -------------------------------------START-------------------------------------*/
             $("#nav_cyeap_tomcat").addClass("active"); // 激活导航栏样式
             var action = "/cyeap_tomcat/get_tomcat_server"; // 获取数据 url 地址
             var params = get_params();   // 获取参数
             get_tomcat_server(action, params); //初始化数据
             /* 页面事件绑定 START */
-            // 查询事件
+            // 查询事件,搜索框内容改变时触发
             $("input[type=text]").on("input", function () {
                 params = get_params(); // 获取参数
                 get_tomcat_server(action, params); // 获取数据
+            });
+            // 启动Tomcat服务
+            $(document).on('click', '#start_tomcat', function () {
+
+            });
+            // 停止Tomcat服务
+            $(document).on('click', '#stop_tomcat', function () {
+
+            });
+            // 升级项目
+            $(document).on('click', 'img[title=\'升级\']', function () {
+                var action = "/cyeap_tomcat/upgrade_webapp/"; // 获取数据 url 地址
+                var tomcat_id = $(this).parent().siblings().eq(0).children().val();  // 获取 TomcatID
+                var params = {"tomcat_id": tomcat_id};
+                $.post(action, {params: JSON.stringify(params)}, function (data) {
+                    console.log(data["result"]);
+                });
             });
             // 上一页事件
             $(document).on('click', '#previous_page', function () {
@@ -161,7 +176,7 @@
                 flip_page(this);
             });
             /* 页面事件绑定 END */
-            /* --------------------END--------------------------*/
+            /* ------------------------------------- END -------------------------------------*/
         });
 
     </script>
