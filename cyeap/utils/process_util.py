@@ -1,47 +1,7 @@
 import os
+import platform
 import sys
 import signal
-import platform
-import json
-import socket
-import socketserver
-import subprocess
-
-
-def send_data(host, port, data):
-    """
-    发送数据
-    :param host:
-    :param port:
-    :param data:
-    :return:
-    """
-    with socket.socket() as sk_client:
-        sk_client.connect((host, port))
-        sk_client.send(bytes(json.dumps(data), 'utf8'))
-        response = sk_client.recv(1024)
-        print(str(response, "utf-8"))
-
-
-class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
-    """
-    继承BaseRequestHandler类,重写handle()方法
-    """
-
-    def handle(self):
-        try:
-            result = self.request.recv(1024)
-            data = str(result, 'utf-8')
-            result = json.loads(data)
-            if isinstance(result, dict):
-                cmd = result.get("cmd")
-                if cmd:
-                    output = subprocess.check_output(cmd, shell=True)
-                    self.request.sendall(output)
-            else:
-                self.request.sendall("Not Support", "utf-8")
-        except ConnectionResetError as error:
-            print('ConnectionResetError: 客户端断开了连接')
 
 
 class Daemon(object):
@@ -53,7 +13,7 @@ class Daemon(object):
     """
     __pid_file = "/tmp/cyeap_daemon.pid"   # 默认PID文件位置
 
-    def __init__(self, pid_file=None):
+    def __init__(self, pid_file):
         if platform.system() == "Linux":
             if pid_file:
                 self.__pid_file = pid_file
@@ -151,35 +111,3 @@ class Daemon(object):
             self.stop()  # 停止
             sys.exit(0)
         self.start()   # 启动
-
-
-class CyeapDaemon(Daemon):
-
-    def run(self):
-        """
-        实现父类run方法,守护进程中运行socket server
-        :return:
-        """
-        host = "172.16.120.14"  # 获取本机IP
-        port = 9999  # 端口
-        print(host, port)
-        server = socketserver.ThreadingTCPServer((host, port), ThreadedTCPRequestHandler)
-        server.serve_forever()
-
-
-# 运行socket服务
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: cyeap_agent.py [start | stop | restart]")
-        sys.exit(0)
-    daemon = CyeapDaemon()
-    if sys.argv[1] == "start":
-        print("[\033[0;32m%s\033[0m]" % "May the blessings of God be with you!")
-        daemon.start()
-    elif sys.argv[1] == "restart":
-        daemon.restart()
-    elif sys.argv[1] == "stop":
-        print("[\033[0;32m%s\033[0m]" % "See you around!")
-        daemon.stop()
-    else:
-        print("[\033[0;43m%s\033[0m]" % "Nothing to do!")

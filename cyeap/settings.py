@@ -161,13 +161,10 @@ LOGGING = {
         },
         'file': {
             'level': 'WARNING',
-            'class': 'logging.handlers.TimedRotatingFileHandler',  #
+            'class': 'logging.FileHandler',  #
             'filename': BASE_DIR + '/logs/cyeap.log',
             'formatter': 'simple',
             'encoding': 'utf8',
-            'when': 'midnight',  # 半夜0点的时候分割日志
-            'interval': 1,
-            'backupCount': 30,  # 最大备份30个日志文件
         },
         'email': {
             'level': 'ERROR',
