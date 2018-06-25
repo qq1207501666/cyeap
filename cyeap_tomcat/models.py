@@ -8,9 +8,8 @@ class TomcatWebapp(models.Model):
         应用程序表
     """
     id = models.AutoField(primary_key=True, verbose_name="项目编号")
-    name = models.CharField(max_length=128, verbose_name="项目名称")
-    alias = models.CharField(max_length=128, null=True, blank=True, verbose_name="项目别名")
-    deploy_path = models.CharField(max_length=128, verbose_name="部署路径", default="/local/webapp/")
+    alias = models.CharField(max_length=128, null=True, blank=True, verbose_name="项目中文别名")
+    deploy_path = models.CharField(max_length=128, verbose_name="项目部署路径", default="/local/webapp/")
     source_path = models.CharField(max_length=128, verbose_name="源路径")
     current_version = models.CharField(max_length=128, null=True, blank=True, verbose_name="项目版本")   # 项目版本
     create_time = models.DateTimeField(auto_now=True, verbose_name="创建时间")      # 创建时间
@@ -28,11 +27,10 @@ class TomcatServer(models.Model):
     """
         Tomcat服务表
     """
-    id = models.AutoField(primary_key=True, verbose_name="TomcatID")
-    name = models.CharField(max_length=128, verbose_name="Tomcat目录名称")
-    alias = models.CharField(max_length=128, null=True, blank=True, verbose_name="Tomcat别名")
+    id = models.AutoField(primary_key=True, verbose_name="Tomcat服务编号")
+    alias = models.CharField(max_length=128, null=True, blank=True, verbose_name="Tomcat中文别名")
+    deploy_path = models.CharField(max_length=128, verbose_name="Tomcat部署路径", default="/local/server/")
     version = models.CharField(max_length=128, null=True, blank=True, verbose_name="Tomcat版本")
-    deploy_path = models.CharField(max_length=128, verbose_name="部署路径", default="/local/server/")
     ip4_inner = models.CharField(max_length=32, null=True, blank=True, verbose_name="内网IP_v4")
     ip4_outer = models.CharField(max_length=32, null=True, blank=True, verbose_name="外网IP_v4")
     http_port = models.SmallIntegerField(verbose_name="HTTP端口")
