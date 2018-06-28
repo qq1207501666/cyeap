@@ -55,7 +55,7 @@
             </tbody>
         </table>
     </div>
-    <div id="dialog_container">
+    <div id="modal_container">
 
     </div>
     <!-- 表格数据展示 END -->
@@ -137,8 +137,8 @@
             }
 
             /* 显示升级模态框 */
-            function show_up_dialog() {
-                var dialog = ["    <!-- 升级按钮弹出模态框（Modal） START-->",
+            function show_up_modal(action, tomcat_ids) {
+                var modal = ["    <!-- 升级按钮弹出模态框（Modal） START-->",
                     "    <div class=\"modal fade\" id=\"upgrade_modal\" tabindex=\"-1\" role=\"dialog\" aria-hidden=\"true\">",
                     "        <div class=\"modal-dialog\">",
                     "            <div class=\"modal-content\">",
@@ -169,9 +169,27 @@
                     "        </div><!-- /.modal-dialog -->",
                     "    </div><!-- /.modal -->",
                     "    <!-- 升级按钮弹出模态框（Modal） START-->"].join("");
-                $("#dialog_container").html(dialog);
+                $("#modal_container").html(modal);
                 $("#upgrade_modal").modal('show');
-                <!--到这了-->
+                var summary = $('input[name="input_up_summary').val(); // 获取摘要
+                var revision = $('input[name="input_up_revision').val(); // 获取版本号
+                var params = {
+                    "tomcat_ids": tomcat_ids,
+                    "summary": summary,
+                    "revision": revision
+                };// 组合参数
+                $("#btn_upgrade").click(function () {
+                    // 发送post提交升级请求
+                    $.post(action, {params: JSON.stringify(params)}, function (data) {
+                        var result = "";
+                        for (var key in data) {
+                            result += "<b>" + key + "</b><p>" + data[key] + "</p>";
+                        }
+                        $(".modal-body").html(result); // 显示响应结果
+                        var btn_close = "<button type=\"button\" class=\"btn btn-success\" data-dismiss=\"modal\">关闭</button>";
+                        $(".modal-footer").html(btn_close); // 将提交按钮替换为关闭按钮
+                    });
+                });
             }
 
             /* --------------------函数定义区 END ---------------------------*/
@@ -196,7 +214,10 @@
             });
             // 升级项目
             $(document).on('click', 'img[title=\'升级\']', function () {
-                show_up_dialog();
+                var action = "/cyeap_tomcat/upgrade_webapp/"; // 升级请求 url 地址
+                var tomcat_id = $(this).parent().siblings().eq(0).children().val();  // 获取 TomcatID
+                var tomcat_ids = [tomcat_id];
+                show_up_modal(action, tomcat_ids);
             });
             // 上一页事件
             $(document).on('click', '#previous_page', function () {

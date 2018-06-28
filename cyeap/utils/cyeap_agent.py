@@ -6,6 +6,7 @@ import json
 import socket
 import socketserver
 import subprocess
+import time
 
 
 def send_data(host, port, data):
@@ -23,25 +24,75 @@ def send_data(host, port, data):
         print(str(response, "utf-8"))
 
 
-class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+def decode(byte_str):
     """
-    继承BaseRequestHandler类,重写handle()方法
+    将字节对象进行解码
+    将依次尝试使用encoding_list中的字符集进行解码,直至解码正确或尝试完所有字符集,进行返回
+    :param byte_str: 字节对象
+    :return: 解码后的字符串对象
     """
-
-    def handle(self):
+    encoding_list = ['UTF-8', 'GBK', ]
+    for encoding in encoding_list:
         try:
-            result = self.request.recv(1024)
-            data = str(result, 'utf-8')
-            result = json.loads(data)
-            if isinstance(result, dict):
-                cmd = result.get("cmd")
-                if cmd:
-                    output = subprocess.check_output(cmd, shell=True)
-                    self.request.sendall(output)
-            else:
-                self.request.sendall("Not Support", "utf-8")
-        except ConnectionResetError as error:
-            print('ConnectionResetError: 客户端断开了连接')
+            return byte_str.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise UnicodeDecodeError("未知的字符集编码")
+
+
+def svn_up(svn_path, r=None):
+    """
+    svn 更新指定目录
+    :param svn_path: svn 路径
+    :param r: 版本号,默认更新至最新版本
+    :return: svn 更新结果
+    """
+    assert os.path.isdir(svn_path), "svn_path must be a directory!"
+    if r:
+        result = subprocess.check_output(["svn", "up", "-r", str(r), svn_path])
+    else:
+        result = subprocess.check_output(["svn", "up", svn_path])
+    return result
+
+
+def restart_tomcat(tomcat_path, stop=False):
+    """
+    重启Tomcat
+    :param tomcat_path: Tomcat 路径
+    :param stop: 如果设置该参数为True,停止Tomcat后,将不再进行启动,强烈建议使用stop_tomcat()进行停止操作
+    :return:
+    """
+    assert os.path.isdir(tomcat_path), "tomcat_path must be a directory!"
+    if tomcat_path[-1] == "/":
+        tomcat_path = tomcat_path[:-1]  # 如果参数末尾以/结束,会导致搜索不到进程,进行截取处理
+    assert os.path.exists("%s/bin/startup.sh" % tomcat_path), "Can't find startup.sh!"
+    find_pid_cmd = "ps -ef | grep -v grep | grep '%s -Djava' | awk '{print $2}'" % tomcat_path  # 查找进程ID
+    pid = subprocess.check_output(find_pid_cmd, shell=True)
+    pid = pid.decode().replace("\n", "")  # 去掉换行符
+    if pid:
+        subprocess.call(["kill", "-9", pid])
+        if stop:
+            return pid
+        time.sleep(1)
+        subprocess.call(["%s/bin/startup.sh" % tomcat_path])
+    else:
+        subprocess.call(["%s/bin/startup.sh" % tomcat_path])
+
+
+def stop_tomcat(tomcat_path):
+    """
+    停止Tomcat
+    :param tomcat_path: Tomcat 路径
+    :return: 被终止的Tomcat进程的PID
+    """
+    return restart_tomcat(tomcat_path, stop=True)
+
+
+def upgrade_webapp(webapp_path, tomcat_path, revision=None):
+    output = svn_up(webapp_path, r=revision)  # 更新项目
+    if output:
+        restart_tomcat(tomcat_path)  # 重启Tomcat
+    return output
 
 
 class Daemon(object):
@@ -51,7 +102,7 @@ class Daemon(object):
     调用start开启守护进程
     调用stop停止守护进程
     """
-    __pid_file = "/tmp/cyeap_daemon.pid"   # 默认PID文件位置
+    __pid_file = "/tmp/cyeap_daemon.pid"  # 默认PID文件位置
 
     def __init__(self, pid_file=None):
         if platform.system() == "Linux":
@@ -67,7 +118,7 @@ class Daemon(object):
         """
         try:
             with open(self.__pid_file) as f:  # 读取PID文件
-                pid = int(f.read().strip())    # 去掉空格,并转换成int类型
+                pid = int(f.read().strip())  # 去掉空格,并转换成int类型
         except Exception as ex:
             pid = None  # 打开PID文件失败,或读取错误
         return pid
@@ -150,11 +201,36 @@ class Daemon(object):
         if temp_pid:
             self.stop()  # 停止
             sys.exit(0)
-        self.start()   # 启动
+        time.sleep(1)
+        self.start()  # 启动
+
+
+class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+    """
+    处理请求的socket server
+    继承的BaseRequestHandler类,重写handle()方法用来处理请求
+    """
+
+    def handle(self):
+        try:
+            result = self.request.recv(1024)
+            data = str(result, 'utf-8')
+            result = json.loads(data)
+            if isinstance(result, dict):
+                cmd = result.get("cmd")
+                if cmd == "upgrade":
+                    args = result.get("args")
+                    output = upgrade_webapp(args["webapp_path"], args["tomcat_path"], revision=args["revision"])
+                    self.request.sendall(output)
+                else:
+                    self.request.sendall(bytes("Unsupported command", "utf-8"))
+            else:
+                self.request.sendall(bytes("Incorrect data format", "utf-8"))
+        except ConnectionResetError as error:
+            print('ConnectionResetError: 客户端断开了连接 %s' % error)
 
 
 class CyeapDaemon(Daemon):
-
     def run(self):
         """
         实现父类run方法,守护进程中运行socket server

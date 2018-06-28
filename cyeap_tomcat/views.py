@@ -77,21 +77,27 @@ def upgrade_webapp(request):
     """
 
     params = request.POST.get("params")  # 获取请求参数
-    logger.error("AAAAAAAAAAAAAAAAAAAAA:%s" % params)
     params = json.loads(params)  # 解析json数据
     logger.error("请求参数:%s" % params)
-    tomcat_id = str_util.none2empty(params.get("tomcat_id"))  # TomcatID
+    tomcat_ids = str_util.none2empty(params.get("tomcat_ids"))  # TomcatID
     summary = str_util.none2empty(params.get("summary"))  # 升级摘要
     revision = str_util.none2empty(params.get("revision"))  # 更新至版本
     if summary:
         pass  # 插入升级记录
-    tomcat_server = models.TomcatServer.objects.get(id=tomcat_id)  # 获取要升级的TomcatServer
-    if revision:
-        cmd = 'svn up %s -r %s' % (tomcat_server.webapp.deploy_path, revision)  # 更新至指定版本
-    else:
-        cmd = 'svn up %s' % tomcat_server.webapp.deploy_path  # 更新至最新版本
-    logger.error("向%s发送命令: %s" % (tomcat_server.ip4_inner, cmd))
-    result = socket_util.send_json(tomcat_server.ip4_inner, 9999, {'cmd': cmd})  # 向agent发送命令
-    logger.error("命令发送结果: %s" % result)
-    json_dict = {"result": result}
+    json_dict = {}
+    for tomcat_id in tomcat_ids:
+        tomcat_server = models.TomcatServer.objects.get(id=tomcat_id)  # 获取要升级的TomcatServer
+        cmd = {"cmd": "uade",
+               "args": {"webapp_path": tomcat_server.webapp.deploy_path,
+                        "tomcat_path": tomcat_server.deploy_path,
+                        "revision": revision}
+               }
+        logger.error("向%s发送命令: %s" % (tomcat_server.ip4_inner, cmd))
+        try:
+            result = socket_util.send_json(tomcat_server.ip4_inner, 9999, cmd)  # 向agent发送命令
+        except Exception as ex:
+            result = str(ex)
+        logger.error("命令发送结果: %s" % result)
+        result = result.replace("\n", "</br>")  # 将 \n 替换成html的换行符</br>
+        json_dict = {str(tomcat_server.ip4_inner): mark_safe(result)}
     return JsonResponse(json_dict)
