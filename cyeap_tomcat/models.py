@@ -1,5 +1,6 @@
 from django.db import models
 
+
 # Create your models here.
 
 
@@ -11,13 +12,13 @@ class TomcatWebapp(models.Model):
     alias = models.CharField(max_length=128, null=True, blank=True, verbose_name="项目中文别名")
     deploy_path = models.CharField(max_length=128, verbose_name="项目部署路径", default="/local/webapp/")
     source_path = models.CharField(max_length=128, verbose_name="源路径")
-    current_version = models.CharField(max_length=128, null=True, blank=True, verbose_name="项目版本")   # 项目版本
-    create_time = models.DateTimeField(auto_now=True, verbose_name="创建时间")      # 创建时间
+    current_version = models.CharField(max_length=128, null=True, blank=True, verbose_name="项目版本")  # 项目版本
+    create_time = models.DateTimeField(auto_now=True, verbose_name="创建时间")  # 创建时间
     update_time = models.DateTimeField(auto_now_add=True, verbose_name="更新时间")  # 更新时间
     remark = models.CharField(max_length=512, null=True, blank=True, verbose_name="备注", default="")  # 备注
 
     def __str__(self):
-        return "%s  %s" % (self.alias, self.name)
+        return "%s  %s" % (self.alias, self.deploy_path)
 
     class Meta:
         db_table = "tomcat_webapp"
@@ -36,7 +37,7 @@ class TomcatServer(models.Model):
     http_port = models.SmallIntegerField(verbose_name="HTTP端口")
     shutdown_port = models.SmallIntegerField(verbose_name="SHUTDOWN端口")
     ajp_port = models.SmallIntegerField(verbose_name="AJP端口")
-    is_run = models.BooleanField(verbose_name="运行状态")  # 是否运行 True:运行中 | False:已停止
+    state = models.SmallIntegerField(verbose_name="运行状态")  # 1 运行中  2 已停止  4 未知
     config = models.TextField(null=True, blank=True, verbose_name="配置文件")
     webapp = models.ForeignKey(TomcatWebapp, on_delete=models.CASCADE, verbose_name="部署应用")
     create_time = models.DateTimeField(auto_now=True, verbose_name="创建时间")
@@ -44,22 +45,29 @@ class TomcatServer(models.Model):
     remark = models.CharField(max_length=512, null=True, blank=True, verbose_name="备注", default="")
 
     def __str__(self):
-        return "%s  %s" % (self.alias, self.name)
+        return "%s  %s" % (self.alias, self.deploy_path)
 
     class Meta:
         db_table = "tomcat_server"
 
-# class UpgradeRecord(models.Model):
-#     """
-#     升级记录表
-#     """
-#     leader = models.CharField(max_length=16)  # 升级负责人
-#     summary = models.CharField(max_length=256)  # 摘要
-#     details = models.CharField(max_length=256)  # 升级详情
-#     svn_revision = models.CharField(max_length=8)  # svn 版本号
-#     create_time = models.DateTimeField(auto_now=True)  # 创建时间
-#     remark = models.CharField(max_length=512)  # 备注
-#     update_time = models.DateTimeField(auto_now_add=True)  # 更新时间
 
+class TomcatServerRecord(models.Model):
+    """
+    TomcatServer的操作记录
+    """
+    username = models.CharField(max_length=16)  # 操作人的用户名
+    RECORD_TYPE = (
+        (1, "启动"),
+        (2, "停止"),
+        (3, "重启"),
+        (4, "升级"),
+        (5, "回滚"),
+    )
+    record_type = models.SmallIntegerField(choices=RECORD_TYPE)  # 记录类型
+    summary = models.CharField(max_length=256)  # 摘要
+    detail = models.TextField(null=True, blank=True)  # 详情
+    create_time = models.DateTimeField(auto_now=True)  # 创建时间
+    tomcat_server = models.ForeignKey(TomcatServer, on_delete=models.CASCADE)  # 关联的tomcat server
 
-
+    class Meta:
+        db_table = "tomcat_server_record"

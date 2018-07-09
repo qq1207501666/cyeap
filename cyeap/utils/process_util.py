@@ -2,6 +2,7 @@ import os
 import platform
 import sys
 import signal
+import time
 
 
 class Daemon(object):
@@ -11,9 +12,9 @@ class Daemon(object):
     调用start开启守护进程
     调用stop停止守护进程
     """
-    __pid_file = "/tmp/cyeap_daemon.pid"   # 默认PID文件位置
+    __pid_file = "/tmp/cyeap_daemon.pid"  # 默认PID文件位置
 
-    def __init__(self, pid_file):
+    def __init__(self, pid_file=None):
         if platform.system() == "Linux":
             if pid_file:
                 self.__pid_file = pid_file
@@ -27,7 +28,7 @@ class Daemon(object):
         """
         try:
             with open(self.__pid_file) as f:  # 读取PID文件
-                pid = int(f.read().strip())    # 去掉空格,并转换成int类型
+                pid = int(f.read().strip())  # 去掉空格,并转换成int类型
         except Exception as ex:
             pid = None  # 打开PID文件失败,或读取错误
         return pid
@@ -110,4 +111,5 @@ class Daemon(object):
         if temp_pid:
             self.stop()  # 停止
             sys.exit(0)
-        self.start()   # 启动
+        time.sleep(3)
+        self.start()  # 启动

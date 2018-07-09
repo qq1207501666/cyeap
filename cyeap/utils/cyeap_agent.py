@@ -9,6 +9,18 @@ import subprocess
 import time
 
 
+def get_ipv4():
+    """
+    获取本地IPv4地址
+    :return:
+    """
+    # 注意外围使用双引号而非单引号,并且假设默认是第一个网卡,特殊环境请适当修改代码
+    ipv4 = subprocess.check_output(
+        "ifconfig | grep 'inet addr:' | grep -v '127.0.0.1' | cut -d: -f2 | awk '{print $1}' | head -1", shell=True)
+    ipv4 = ipv4.decode().replace("\n", "")  # 去掉换行符
+    return ipv4
+
+
 def send_data(host, port, data):
     """
     发送数据
@@ -55,12 +67,11 @@ def svn_up(svn_path, r=None):
     return result
 
 
-def restart_tomcat(tomcat_path, stop=False):
+def get_tomcat_pid(tomcat_path):
     """
-    重启Tomcat
-    :param tomcat_path: Tomcat 路径
-    :param stop: 如果设置该参数为True,停止Tomcat后,将不再进行启动,强烈建议使用stop_tomcat()进行停止操作
-    :return:
+    获取Tomcat PID
+    :param tomcat_path: tomcat目录
+    :return: 进程ID号
     """
     assert os.path.isdir(tomcat_path), "tomcat_path must be a directory!"
     if tomcat_path[-1] == "/":
@@ -69,6 +80,17 @@ def restart_tomcat(tomcat_path, stop=False):
     find_pid_cmd = "ps -ef | grep -v grep | grep '%s -Djava' | awk '{print $2}'" % tomcat_path  # 查找进程ID
     pid = subprocess.check_output(find_pid_cmd, shell=True)
     pid = pid.decode().replace("\n", "")  # 去掉换行符
+    return pid
+
+
+def restart_tomcat(tomcat_path, stop=False):
+    """
+    重启Tomcat
+    :param tomcat_path: Tomcat 路径
+    :param stop: 如果设置该参数为True,停止Tomcat后,将不再进行启动,强烈建议使用stop_tomcat()进行停止操作
+    :return:
+    """
+    pid = get_tomcat_pid(tomcat_path)  # 获取Tomcat PID
     if pid:
         subprocess.call(["kill", "-9", pid])
         if stop:
@@ -89,6 +111,13 @@ def stop_tomcat(tomcat_path):
 
 
 def upgrade_webapp(webapp_path, tomcat_path, revision=None):
+    """
+    主要功能1: 项目升级
+    :param webapp_path: 项目部署路径
+    :param tomcat_path: TomcatServer部署路径
+    :param revision: 更新至项目版本号 revision 默认None为最新版本
+    :return: 更新的内容
+    """
     output = svn_up(webapp_path, r=revision)  # 更新项目
     if output:
         restart_tomcat(tomcat_path)  # 重启Tomcat
@@ -201,7 +230,7 @@ class Daemon(object):
         if temp_pid:
             self.stop()  # 停止
             sys.exit(0)
-        time.sleep(1)
+        time.sleep(3)
         self.start()  # 启动
 
 
@@ -217,15 +246,34 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             data = str(result, 'utf-8')
             result = json.loads(data)
             if isinstance(result, dict):
-                cmd = result.get("cmd")
+                cmd = result.get("cmd")  # 指令
+                args = result.get("args")  # 参数集
+                # 支持命令1: 项目升级
                 if cmd == "upgrade":
-                    args = result.get("args")
                     output = upgrade_webapp(args["webapp_path"], args["tomcat_path"], revision=args["revision"])
-                    self.request.sendall(output)
+                    self.request.sendall(output)  # 将更新结果返回
+                # 支持命令2: Tomcat重启
+                elif cmd == "restart_tomcat":  # 启动|停止|重启 Tomcat
+                    if args["opt"] == "start" or args["opt"] == "restart":
+                        restart_tomcat(args["tomcat_path"])  # 启动 与 重启
+                        self.request.sendall(bytes("START OK", "utf-8"))
+                    elif args["opt"] == "stop":
+                        restart_tomcat(args["tomcat_path"], stop=True)  # 停止
+                        self.request.sendall(bytes("STOP OK", "utf-8"))
+                    else:
+                        self.request.sendall(bytes("Incorrect args", "utf-8"))  # 错误的参数指令
+                # 支持命令3: Tomcat状态检测
+                elif cmd == "check_tomcat":
+                    tomcat_path = args["tomcat_path"]
+                    pid = get_tomcat_pid(tomcat_path)
+                    if pid:
+                        self.request.sendall(bytes("True", "utf-8"))  # 不支持的命令
+                    else:
+                        self.request.sendall(bytes("False", "utf-8"))  # 不支持的命令
                 else:
-                    self.request.sendall(bytes("Unsupported command", "utf-8"))
+                    self.request.sendall(bytes("Unsupported command", "utf-8"))  # 不支持的命令
             else:
-                self.request.sendall(bytes("Incorrect data format", "utf-8"))
+                self.request.sendall(bytes("Incorrect data format", "utf-8"))  # 错误的数据格式
         except ConnectionResetError as error:
             print('ConnectionResetError: 客户端断开了连接 %s' % error)
 
@@ -236,11 +284,12 @@ class CyeapDaemon(Daemon):
         实现父类run方法,守护进程中运行socket server
         :return:
         """
-        host = "172.16.120.14"  # 获取本机IP
-        port = 9999  # 端口
+        # 下方代码为获取当前主机IPV4 和IPV6的所有IP地址(所有系统均通用)
+        host = get_ipv4()
+        port = 6666  # 端口
+        server = socketserver.ForkingTCPServer((host, port), ThreadedTCPRequestHandler)
         print(host, port)
-        server = socketserver.ThreadingTCPServer((host, port), ThreadedTCPRequestHandler)
-        server.serve_forever()
+        server.serve_forever()  # 开启服务
 
 
 # 运行socket服务

@@ -71,7 +71,7 @@
     <script>
         $(function () {
             /* --------------------函数定义区 START--------------------------*/
-            /* 返回查询数据所用到的字典参数*/
+            /* 返回查询数据所用到的字典参数 即搜索输入框中现有的值及分页设置*/
             function get_params() {
                 var tomcat_name = $('input[name="input_tomcat_name"]').val();
                 var tomcat_alias = $('input[name="input_tomcat_alias').val();
@@ -83,7 +83,7 @@
                     "ip4_inner": ip4_inner,
                     "webapp_name": webapp_name,
                     "page_num": 1,  // 默认显示第一页
-                    "page_size": 5  // 默认单页条数
+                    "page_size": 10  // 默认单页条数
                 };
                 return params;
             }
@@ -101,10 +101,12 @@
                             tbody_html += "<td>" + data[tm]["webapp_deploy_path"] + "</td>";
                             tbody_html += "<td>" + data[tm]["alias"] + "</td>";
                             tbody_html += "<td>" + data[tm]["ip4_inner"] + "</td>";
-                            if (data[tm]["is_run"]) {
+                            if (data[tm]["state"]==1) {
                                 tbody_html += "<td><input id=\"stop_tomcat\" type=\"button\" class=\"btn btn-success btn-xs\" data-toggle=\"tooltip\" title=\"点击停止运行\" value=\"运行中\"></td>";
-                            } else {
+                            } else if (data[tm]["state"]==2) {
                                 tbody_html += "<td><input id=\"start_tomcat\" type=\"button\" class=\"btn btn-danger btn-xs\" data-toggle=\"tooltip\" title=\"点击启动服务\" value=\"已停止\"></td>";
+                            } else{
+                                tbody_html += "<td><input type=\"button\" class=\"btn btn-warning btn-xs\" data-toggle=\"tooltip\" title=\"未检测到当前状态\" value=\"未知\"></td>";
                             }
                             tbody_html += "<td><img src=\"/static/img/upgrade.ico\" data-toggle=\"tooltip\" title=\"升级\"/></td>";
                             tbody_html += "<td><img src=\"/static/img/remark.ico\" data-toggle=\"tooltip\" title=\"" + data[tm]["remark"] + "\"/></td>"
@@ -136,8 +138,25 @@
                 get_tomcat_server(action, params); // 获取数据
             }
 
-            /* 显示升级模态框 */
-            function show_up_modal(action, tomcat_ids) {
+            /* 启动|停止|重启 Tomcat */
+            function restart_tomcat(tomcat_ids, opt) {
+                var params = {
+                    "tomcat_ids": tomcat_ids,
+                    "opt": opt
+                };// 组合参数
+                $.post("/cyeap_tomcat/restart_tomcat/", {params: JSON.stringify(params)}, function (data) {
+                    for (var key in data) {
+                        if(data[key].indexOf("OK") == -1){
+                            alert(key+data[key]);
+                        }
+                    }
+                    var params = get_params();
+                    get_tomcat_server(action, params);
+                });
+            }
+
+            /* 项目升级 */
+            function upgrade(tomcat_ids) {
                 var modal = ["    <!-- 升级按钮弹出模态框（Modal） START-->",
                     "    <div class=\"modal fade\" id=\"upgrade_modal\" tabindex=\"-1\" role=\"dialog\" aria-hidden=\"true\">",
                     "        <div class=\"modal-dialog\">",
@@ -168,19 +187,19 @@
                     "            </div><!-- /.modal-content -->",
                     "        </div><!-- /.modal-dialog -->",
                     "    </div><!-- /.modal -->",
-                    "    <!-- 升级按钮弹出模态框（Modal） START-->"].join("");
+                    "    <!-- 升级按钮弹出模态框（Modal） END-->"].join("");
                 $("#modal_container").html(modal);
                 $("#upgrade_modal").modal('show');
-                var summary = $('input[name="input_up_summary').val(); // 获取摘要
-                var revision = $('input[name="input_up_revision').val(); // 获取版本号
-                var params = {
-                    "tomcat_ids": tomcat_ids,
-                    "summary": summary,
-                    "revision": revision
-                };// 组合参数
                 $("#btn_upgrade").click(function () {
+                    var summary = $("input[name='input_up_summary']").val(); // 获取摘要
+                    var revision = $("input[name='input_up_revision']").val(); // 获取版本号
+                    var params = {
+                        "tomcat_ids": tomcat_ids,
+                        "summary": summary,
+                        "revision": revision
+                    };// 组合参数
                     // 发送post提交升级请求
-                    $.post(action, {params: JSON.stringify(params)}, function (data) {
+                    $.post("/cyeap_tomcat/upgrade_webapp/", {params: JSON.stringify(params)}, function (data) {
                         var result = "";
                         for (var key in data) {
                             result += "<b>" + key + "</b><p>" + data[key] + "</p>";
@@ -195,7 +214,7 @@
             /* --------------------函数定义区 END ---------------------------*/
             /* -------------------------------------START-------------------------------------*/
             $("#nav_cyeap_tomcat").addClass("active"); // 激活导航栏样式
-            var action = "/cyeap_tomcat/get_tomcat_server"; // 获取数据 url 地址
+            var action = "/cyeap_tomcat/get_tomcat_server/"; // 获取数据 url 地址
             var params = get_params();   // 获取参数
             get_tomcat_server(action, params); //初始化数据
             /* 页面事件绑定 START */
@@ -206,18 +225,21 @@
             });
             // 启动Tomcat服务
             $(document).on('click', '#start_tomcat', function () {
-
+                var tomcat_id = $(this).parent().siblings().eq(0).children().val();  // 获取 TomcatID
+                var tomcat_ids = [tomcat_id];
+                restart_tomcat(tomcat_ids, "start")
             });
             // 停止Tomcat服务
             $(document).on('click', '#stop_tomcat', function () {
-
+                var tomcat_id = $(this).parent().siblings().eq(0).children().val();  // 获取 TomcatID
+                var tomcat_ids = [tomcat_id];
+                restart_tomcat(tomcat_ids, "stop")
             });
             // 升级项目
             $(document).on('click', 'img[title=\'升级\']', function () {
-                var action = "/cyeap_tomcat/upgrade_webapp/"; // 升级请求 url 地址
                 var tomcat_id = $(this).parent().siblings().eq(0).children().val();  // 获取 TomcatID
                 var tomcat_ids = [tomcat_id];
-                show_up_modal(action, tomcat_ids);
+                upgrade(tomcat_ids);
             });
             // 上一页事件
             $(document).on('click', '#previous_page', function () {

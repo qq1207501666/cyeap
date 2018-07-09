@@ -9,4 +9,5 @@ urlpatterns = [
     url(r'^index/', views.index),  # 首页
     url(r'^get_tomcat_server/', views.get_tomcat_server),  # 获取表格数据
     url(r'^upgrade_webapp/', views.upgrade_webapp),  # 升级项目
+    url(r'^restart_tomcat/', views.restart_tomcat),  # 启动|停止|重启 Tomcat服务
 ]
