@@ -227,13 +227,15 @@
             $(document).on('click', '#start_tomcat', function () {
                 var tomcat_id = $(this).parent().siblings().eq(0).children().val();  // 获取 TomcatID
                 var tomcat_ids = [tomcat_id];
-                restart_tomcat(tomcat_ids, "start")
+                $(this).addClass("disabled");  // 禁用按钮,防止连续触发
+                restart_tomcat(tomcat_ids, "start");
             });
             // 停止Tomcat服务
             $(document).on('click', '#stop_tomcat', function () {
                 var tomcat_id = $(this).parent().siblings().eq(0).children().val();  // 获取 TomcatID
                 var tomcat_ids = [tomcat_id];
-                restart_tomcat(tomcat_ids, "stop")
+                $(this).addClass("disabled");  // 禁用按钮,防止连续触发
+                restart_tomcat(tomcat_ids, "stop");
             });
             // 升级项目
             $(document).on('click', 'img[title=\'升级\']', function () {

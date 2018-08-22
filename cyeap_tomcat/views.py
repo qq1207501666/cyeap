@@ -5,7 +5,7 @@ from django.forms.models import model_to_dict  # 对象转换成字典
 from django.utils.safestring import mark_safe  # 防止html代码直接红果果的显示在页面上
 import json
 import logging
-from cyeap.utils import page_util, str_util, socket_util
+from cyeap.utils import page_util, str_util, socket_util, mq_util
 from cyeap_tomcat import models, timing
 
 logger = logging.getLogger('django')  # 获取日志对象
@@ -38,7 +38,7 @@ def restart_tomcat(request):
                }
         logger.error("向%s发送命令: %s" % (tomcat_server.ip4_inner, cmd))
         try:
-            result = socket_util.send_json(tomcat_server.ip4_inner, 6666, cmd)  # 向agent发送命令
+            result = mq_util.call(tomcat_server.ip4_inner, cmd)  # 向agent发送命令
             record = models.TomcatServerRecord()
             record.username = request.user.username  # 获取当前登录的用户名
             record.tomcat_server = tomcat_server
@@ -63,6 +63,7 @@ def restart_tomcat(request):
         else:
             tomcat_server.state = 4
         tomcat_server.save()  # 保存Tomcat服务状态更改
+        print(type(result))
         result = result.replace("\n", "</br>")  # 将 \n 替换成html的换行符</br>
         json_dict = {str(tomcat_server.ip4_inner): mark_safe(result)}
     return JsonResponse(json_dict)
@@ -137,7 +138,7 @@ def upgrade_webapp(request):
                }
         logger.error("向%s发送命令: %s" % (tomcat_server.ip4_inner, cmd))
         try:
-            result = socket_util.send_json(tomcat_server.ip4_inner, 6666, cmd)  # 向agent发送命令
+            result = mq_util.call(tomcat_server.ip4_inner, cmd)  # 向agent发送命令
             record = models.TomcatServerRecord()
             record.username = request.user.username  # 获取当前登录的用户名
             record.summary = summary

@@ -4,7 +4,7 @@ import signal
 import platform
 import json
 import socket
-import pika
+import socketserver
 import subprocess
 import time
 
@@ -123,57 +123,6 @@ def upgrade_webapp(webapp_path, tomcat_path, revision=None):
     return output
 
 
-def handle(channel, method, properties, body):
-    """
-    业务逻辑总调度
-    :param channel:
-    :param method:
-    :param properties:
-    :param body:
-    :return:
-    """
-    body = json.loads(str(body, 'utf-8'))
-    if properties.reply_to is None:
-        print("接受到的消息:%s" % body)
-    else:
-        print("接受到需要返回的消息:%s" % body)
-        if isinstance(body, dict):
-            cmd = body.get("cmd")  # 指令
-            args = body.get("args")  # 参数集
-            # 支持命令1: 项目升级
-            if cmd == "upgrade":
-                response = upgrade_webapp(args["webapp_path"], args["tomcat_path"], revision=args["revision"])
-            # 支持命令2: Tomcat重启
-            elif cmd == "restart_tomcat":  # 启动|停止|重启 Tomcat
-                if args["opt"] == "start" or args["opt"] == "restart":
-                    restart_tomcat(args["tomcat_path"])  # 启动 与 重启
-                    response = bytes("START OK", "utf-8")
-                elif args["opt"] == "stop":
-                    restart_tomcat(args["tomcat_path"], stop=True)  # 停止
-                    response = bytes("STOP OK", "utf-8")
-                else:
-                    response = bytes("Incorrect args", "utf-8")  # 错误的参数指令
-            # 支持命令3: Tomcat状态检测
-            elif cmd == "check_tomcat":
-                tomcat_path = args["tomcat_path"]
-                pid = get_tomcat_pid(tomcat_path)
-                if pid:
-                    response = bytes("True", "utf-8")
-                else:
-                    response = bytes("False", "utf-8")
-            else:
-                response = bytes("Unsupported command", "utf-8")  # 不支持的命令
-        else:
-            response = bytes("Incorrect data format", "utf-8")  # 错误的数据格式
-        channel.basic_publish(
-            exchange='cyeap_direct',  # 把执行结果发回给客户端
-            routing_key=properties.reply_to,  # 客户端要求返回想用的queue
-            properties=pika.BasicProperties(correlation_id=properties.correlation_id),
-            body=response  # 响应消息
-        )
-    channel.basic_ack(delivery_tag=method.delivery_tag)  # 确认消息
-
-
 class Daemon(object):
     """
     守护进程基类
@@ -181,7 +130,7 @@ class Daemon(object):
     调用start开启守护进程
     调用stop停止守护进程
     """
-    __pid_file = "%s/cyeap_agent.pid" % os.path.dirname(os.path.abspath(__file__))  # 默认PID文件位置: 文件所在目录
+    __pid_file = "/tmp/cyeap_daemon.pid"  # 默认PID文件位置
 
     def __init__(self, pid_file=None):
         if platform.system() == "Linux":
@@ -253,7 +202,6 @@ class Daemon(object):
             print("pid_file [%s] already exist.Daemon already running?\n" % self.__pid_file)
             sys.exit(1)
         else:
-            print("[\033[0;32m%s\033[0m]" % "May the blessings of God be with you!")
             self.__create_daemon()
             self.run()
 
@@ -266,7 +214,6 @@ class Daemon(object):
         if pid:
             os.remove(self.__pid_file)  # 删除PID文件
             try:
-                print("[\033[0;32m%s\033[0m]" % "See you around!")
                 os.kill(pid, signal.SIGTERM)  # 杀掉进程
             except ProcessLookupError:
                 print("No such process!")  # 找不到进程
@@ -286,42 +233,77 @@ class Daemon(object):
         self.start()  # 启动
 
 
+class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+    """
+    处理请求的socket server
+    继承的BaseRequestHandler类,重写handle()方法用来处理请求
+    """
+
+    def handle(self):
+        try:
+            result = self.request.recv(1024)
+            data = str(result, 'utf-8')
+            result = json.loads(data)
+            if isinstance(result, dict):
+                cmd = result.get("cmd")  # 指令
+                args = result.get("args")  # 参数集
+                # 支持命令1: 项目升级
+                if cmd == "upgrade":
+                    output = upgrade_webapp(args["webapp_path"], args["tomcat_path"], revision=args["revision"])
+                    self.request.sendall(output)  # 将更新结果返回
+                # 支持命令2: Tomcat重启
+                elif cmd == "restart_tomcat":  # 启动|停止|重启 Tomcat
+                    if args["opt"] == "start" or args["opt"] == "restart":
+                        restart_tomcat(args["tomcat_path"])  # 启动 与 重启
+                        self.request.sendall(bytes("START OK", "utf-8"))
+                    elif args["opt"] == "stop":
+                        restart_tomcat(args["tomcat_path"], stop=True)  # 停止
+                        self.request.sendall(bytes("STOP OK", "utf-8"))
+                    else:
+                        self.request.sendall(bytes("Incorrect args", "utf-8"))  # 错误的参数指令
+                # 支持命令3: Tomcat状态检测
+                elif cmd == "check_tomcat":
+                    tomcat_path = args["tomcat_path"]
+                    pid = get_tomcat_pid(tomcat_path)
+                    if pid:
+                        self.request.sendall(bytes("True", "utf-8"))  # 不支持的命令
+                    else:
+                        self.request.sendall(bytes("False", "utf-8"))  # 不支持的命令
+                else:
+                    self.request.sendall(bytes("Unsupported command", "utf-8"))  # 不支持的命令
+            else:
+                self.request.sendall(bytes("Incorrect data format", "utf-8"))  # 错误的数据格式
+        except ConnectionResetError as error:
+            print('ConnectionResetError: 客户端断开了连接 %s' % error)
+
+
 class CyeapDaemon(Daemon):
     def run(self):
         """
-        实现父类run方法，在守护进程中运行
+        实现父类run方法,守护进程中运行socket server
         :return:
         """
         # 下方代码为获取当前主机IPV4 和IPV6的所有IP地址(所有系统均通用)
-        mq_host = '172.16.120.13'  # rabbit mq 服务的IP地址
-        # 创建链接
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=mq_host))
-        # 建立隧道
-        channel = connection.channel()
-        ip = get_ipv4()
-        print(ip)
-        # 声明一个队列
-        result = channel.queue_declare(queue=ip)
-        queue_name = result.method.queue
-        # 将队列和交换机进行绑定
-        channel.queue_bind(exchange="cyeap_direct", queue=queue_name, routing_key=ip)
-        # 定义如何消费消息
-        channel.basic_consume(handle, queue=queue_name)
-        # 开始接受消息
-        channel.start_consuming()
+        host = get_ipv4()
+        port = 6666  # 端口
+        server = socketserver.ThreadingTCPServer((host, port), ThreadedTCPRequestHandler)
+        print(host, port)
+        server.serve_forever()  # 开启服务
 
 
-# 运行服务
+# 运行socket服务
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: cyeap_agent.py [start | stop | restart]")
+        print("Usage: cyeap_agent_v1.0.py [start | stop | restart]")
         sys.exit(0)
-    daemon = CyeapDaemon()  # 创建守护进程
+    daemon = CyeapDaemon()
     if sys.argv[1] == "start":
+        print("[\033[0;32m%s\033[0m]" % "May the blessings of God be with you!")
         daemon.start()
     elif sys.argv[1] == "restart":
         daemon.restart()
     elif sys.argv[1] == "stop":
+        print("[\033[0;32m%s\033[0m]" % "See you around!")
         daemon.stop()
     else:
         print("[\033[0;43m%s\033[0m]" % "Nothing to do!")

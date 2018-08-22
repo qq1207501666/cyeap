@@ -1,7 +1,8 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from cyeap_tomcat import models
-from cyeap.utils import socket_util
+from cyeap.utils import mq_util
 import logging
+
 logger = logging.getLogger('django')  # 获取日志对象
 
 
@@ -17,14 +18,19 @@ def update_tomcat_state():
                }
         try:
             logger.error("Tomcat定时巡检[%s]" % tomcat_server.ip4_inner)
-            result = socket_util.send_json(tomcat_server.ip4_inner, 6666, cmd)  # 向agent发送命令
+            result = mq_util.call(tomcat_server.ip4_inner, cmd)  # 向agent发送命令
+            logger.error("Tomcat定时巡检结果-----[%s]" % result)
         except Exception as ex:
             result = 4
+            logger.error("Tomcat定时巡检结果4444444444444%s" % str(ex))
         if result == "True":
             result = 1
+            logger.error("Tomcat定时巡检结果1111111111111%s" % tomcat_server.state)
         if result == "False":
             result = 2
+            logger.error("Tomcat定时巡检结果1111111111111%s" % tomcat_server.state)
         if result != tomcat_server.state:  # 状态不一致则需要更新数据库中的状态
+            logger.error("Tomcat修改咯%s%s" % (tomcat_server.state, result))
             tomcat_server.state = result
             tomcat_server.save()
 
